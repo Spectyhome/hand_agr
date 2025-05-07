@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Программа для работы с файлами</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+        }
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        .tab-buttons button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: none;
+            background-color: #3a9547;
+            color: white;
+            border-radius: 30px;
+            font-size: 16px;
+        }
+        .tab {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+        }
+        .tab.active {
+            display: block;
+        }
+        label {
+            margin-top: 20px;
+            display: block;
+            font-weight: bold;
+        }
+        textarea, input[type="number"], input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            color: white;
+            background-color: #3a9547;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .file-input-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .file-input-container input {
+            flex-grow: 1;
+        }
+        .file-input-container button {
+            margin-left: 10px;
+            padding: 10px 15px;
+            font-size: 14px;
+            background-color: #ff6347;
+            color: white;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="tab-buttons">
+        <button onclick="showTab('manualAggregation')">Ручная агрегация</button>
+    </div>
+
+    <!-- Tab 1: Ручная агрегация -->
+    <div id="manualAggregation" class="tab active">
+        <h1>Ручная агрегация</h1>
+
+        <!-- Секция создания файла Excel -->
+        <div>
+            <h2>Создать файл</h2>
+            <label for="dmInput">Ввод DM:</label>
+            <textarea id="dmInput" placeholder="00000000000000000000000000001"></textarea>
+
+            <label for="korRepetition">Сколько раз дублировать коробки:</label>
+            <input type="number" id="korRepetition" value="1" min="1">
+
+            <label for="korInput">Ввод номеров коробок:</label>
+            <textarea id="korInput" placeholder="000001"></textarea>
+
+            <label for="palRepetition">Сколько раз дублировать паллеты:</label>
+            <input type="number" id="palRepetition" value="1" min="1">
+
+            <label for="palInput">Ввод номеров паллетов:</label>
+            <textarea id="palInput" placeholder="000001"></textarea>
+
+            <button onclick="generateExcel()">Сформировать</button>
+        </div>
+
+        <!-- Секция объединения файлов Excel -->
+        <div>
+            <h2>Объединить файлы</h2>
+            <div id="fileInputs">
+                <div class="file-input-container">
+                    <input type="file" class="excel-file">
+                    <button onclick="addFileInput()">Добавить еще файл</button>
+                </div>
+            </div>
+            <button onclick="mergeExcelFiles()">Сформировать общий отчет</button>
+        </div>
+    </div>
+
+    <!-- Tab 2: С PDF в CSV -->
+    <div id="pdfToCsv" class="tab">
+        <h1>С PDF в CSV</h1>
+        <label for="pdfFolder">Выберите папку с PDF файлами:</label>
+        <input type="file" id="pdfFolder" webkitdirectory multiple>
+        <button onclick="convertPdfFolderToCsv()">Конвертировать в CSV</button>
+    </div>
+
+    <!-- Tab 3: Проверка агрегации -->
+    <div id="aggregationCheck" class="tab">
+        <h1>Проверка агрегации</h1>
+        <label for="companySelect">Выберите компанию:</label>
+        <select id="companySelect">
+            <option value="big">БИГ</option>
+            <option value="bravo">БРАВОТРЕЙД</option>
+            <option value="grand">ГРАНДТРЕЙД</option>
+            <option value="vialko">ВИАЛКО</option>
+            <option value="wine">ВАЙН ЭНД ВАЙН</option>
+            <option value="bella">БЕЛЛА</option>
+        </select>
+        <label for="checkFile">Выберите файл:</label>
+        <input type="file" id="checkFile">
+        <button onclick="checkAggregation()">Проверить</button>
+    </div>
+    <!-- Tab 4: Онтекс-->
+    <div id="ontex" class="tab">
+        <h1>Создать CSV и PDF</h1>
+        <label for="gtin">GTIN:</label>
+        <input type="text" id="gtin">
+
+        <label for="date">Дата (ДДММГГ):</label>
+        <input type="text" id="date" placeholder="141024">
+
+        <label for="quantity">Количество:</label>
+        <input type="number" id="quantity" min="1" value="1">
+
+        <label for="startNumber">Номер начала:</label>
+        <input type="number" id="startNumber" min="1" value="1">
+
+        <button onclick="generateOntexCSV()">Сформировать</button>
+
+        <form action="/go_to_6" method="POST">
+        <button type="submit">Печать ШК Онтекс</button>
+        </form>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.12.313/build/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/FileSaver.min.js"></script>
+
+    <script>
+
+    function openHtmlFile() {
+        window.location.href = '6.html';  // This will open 6.html in the current tab
+        // Alternatively, you can use `window.open('6.html', '_blank');` to open it in a new tab
+    }
+
+    function showTab(tabId) {
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function generateOntexCSV() {
+            // Получение значений из полей
+            const gtin = document.getElementById('gtinInput').value;
+            const date = document.getElementById('dateInput').value.replace(/-/g, ''); // Убираем дефисы из даты
+            const quantity = parseInt(document.getElementById('quantityInput').value);
+            const startNumber = parseInt(document.getElementById('startNumberInput').value);
+
+            if (!gtin || !date || isNaN(quantity) || isNaN(startNumber)) {
+                alert("Пожалуйста, заполните все поля корректно.");
+                return;
+            }
+
+            // Формирование данных
+            let data = [['Номер']];
+            for (let i = 0; i < quantity; i++) {
+                const serialNumber = String(startNumber + i).padStart(6, '0');
+                const formattedNumber = `01${gtin}10${date}217${serialNumber}`;
+                data.push([formattedNumber]);
+            }
+
+            // Создание CSV-файла
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Онтекс");
+            XLSX.writeFile(wb, 'ontex_data.csv');
+        }
+
+
+    function generateExcel() {
+        const dmInput = document.getElementById('dmInput').value.trim().split('\n');
+        const korInput = document.getElementById('korInput').value.trim().split('\n');
+        const palInput = document.getElementById('palInput').value.trim().split('\n');
+        const korRepetition = parseInt(document.getElementById('korRepetition').value);
+        const palRepetition = parseInt(document.getElementById('palRepetition').value);
+
+        let data = [['DM', 'KOR', 'PAL']];
+
+        let maxRows = Math.max(dmInput.length, korInput.length * korRepetition, palInput.length * palRepetition);
+        let korIndex = 0;
+        let palIndex = 0;
+
+        for (let i = 0; i < maxRows; i++) {
+            const dm = dmInput[i] || "";
+            const kor = korInput[Math.floor(korIndex / korRepetition)] || "";
+            const pal = palInput[Math.floor(palIndex / palRepetition)] || "";
+
+            data.push([dm, kor, pal]);
+
+            if (korIndex / korRepetition < korInput.length) korIndex++;
+            if (palIndex / palRepetition < palInput.length) palIndex++;
+        }
+
+        let wb = XLSX.utils.book_new();
+        let ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, 'data.xlsx');
+    }
+
+    function addFileInput() {
+        const container = document.getElementById('fileInputs');
+        const fileInputContainer = document.createElement('div');
+        fileInputContainer.className = 'file-input-container';
+        fileInputContainer.innerHTML = '<input type="file" class="excel-file"><button onclick="removeFileInput(this)">Удалить файл</button>';
+        container.appendChild(fileInputContainer);
+    }
+
+    function removeFileInput(button) {
+        button.parentElement.remove();
+    }
+
+    function mergeExcelFiles() {
+        let data = [];
+        const fileInputs = document.querySelectorAll('.excel-file');
+        let promises = [];
+
+        fileInputs.forEach((input, index) => {
+            const file = input.files[0];
+            if (file) {
+                let reader = new FileReader();
+                promises.push(new Promise((resolve, reject) => {
+                    reader.onload = function(e) {
+                        let arrayBuffer = e.target.result;
+                        let workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                        let firstSheetName = workbook.SheetNames[0];
+                        let worksheet = workbook.Sheets[firstSheetName];
+                        let sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        if (index === 0) {
+                            data.push(...sheetData);
+                        } else {
+                            data.push(...sheetData.slice(1));
+                        }
+                        resolve();
+                    };
+                    reader.onerror = function(err) {
+                        reject(err);
+                    };
+                    reader.readAsArrayBuffer(file);
+                }));
+            }
+        });
+
+        Promise.all(promises).then(() => {
+            let wb = XLSX.utils.book_new();
+            let ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, 'merged_data.xlsx');
+        }).catch(error => {
+            console.error('Ошибка при чтении файлов: ', error);
+        });
+    }
+
+    async function convertPdfFolderToCsv() {
+        const folderInput = document.getElementById('pdfFolder');
+        const files = Array.from(folderInput.files).filter(file => file.type === 'application/pdf');
+
+        if (files.length === 0) {
+            alert("Пожалуйста, выберите папку с PDF файлами.");
+            return;
+        }
+
+        try {
+            const dataMatrixCodes = [];
+            const folderName = folderInput.files[0].webkitRelativePath.split('/')[0];
+
+            for (const file of files) {
+                const pdfData = await file.arrayBuffer();
+                const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                const numPages = pdfDoc.numPages;
+
+                for (let i = 1; i <= numPages; i++) {
+                    const page = await pdfDoc.getPage(i);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const context = canvas.getContext('2d');
+
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                    const codeReader = new ZXing.BrowserDatamatrixCodeReader();
+                    const imageDataUrl = canvas.toDataURL();
+                    const result = await codeReader.decodeFromImage(undefined, imageDataUrl);
+
+                    if (result) {
+                        let text = result.text;
+                        if (text.charCodeAt(0) === 29) {
+                            text = text.substring(1);
+                        }
+                        dataMatrixCodes.push(text);
+                    }
+                }
+            }
+
+            const csvContent = "data:text/csv;charset=utf-8," + dataMatrixCodes.join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", folderName + '.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Ошибка при обработке PDF файлов:', error);
+            alert("Произошла ошибка при чтении DataMatrix-кодов из PDF.");
+        }
+    }
+
+
+    function checkAggregation() {
+        const company = document.getElementById('companySelect').value;
+        const fileInput = document.getElementById('checkFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Пожалуйста, выберите файл.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const content = event.target.result;
+            if (company === "big") {
+                checkBigAggregation(content);
+            } else if (company === "bravo") {
+                checkBravoAggregation(event.target.result);
+            } else if (company === "grand") {
+                checkGrandAggregation(content);
+            }
+        };
+
+        if (company === "bravo") {
+            reader.readAsBinaryString(file);
+        } else {
+            reader.readAsText(file);
+        }
+    }
+
+    function checkBigAggregation(xmlContent) {
+        const dataMatrixCodes = (xmlContent.match(/<DataMatrix>(.*?)<\/DataMatrix>/g) || []).map(tag => tag.replace(/<\/?DataMatrix>/g, ''));
+        const palletNumbers = (xmlContent.match(/<PalletNumber>/g) || []).length;
+        const boxNumbers = (xmlContent.match(/<BoxNumber>/g) || []).length;
+
+        const duplicateDataMatrixCodes = dataMatrixCodes.filter((item, index) => dataMatrixCodes.indexOf(item) !== index);
+
+        alert(`Количество тегов DataMatrix: ${dataMatrixCodes.length}\nДублированные DataMatrix: ${duplicateDataMatrixCodes.length > 0 ? duplicateDataMatrixCodes.join(", ") : 'Нет'}\nКоличество вхождений PalletNumber: ${palletNumbers}\nКоличество вхождений BoxNumber: ${boxNumbers}`);
+    }
+
+    function checkBravoAggregation(fileContent) {
+        const workbook = XLSX.read(fileContent, { type: 'binary' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        const dmColumn = data.slice(1).map(row => row[0]).filter(Boolean); // PDF_417 column without header
+
+        const duplicateDm = dmColumn.filter((item, index) => dmColumn.indexOf(item) !== index);
+
+        alert(`Количество записей ДМ: ${dmColumn.length}\nДублированные ДМ: ${duplicateDm.length > 0 ? duplicateDm.join(", ") : 'Нет'}`);
+    }
+
+    function checkGrandAggregation(xmlContent) {
+        const nsCodes = (xmlContent.match(/<ns:Code>(.*?)<\/ns:Code>/g) || []).map(tag => tag.replace(/<\/?ns:Code>/g, ''));
+        const alcoholCodes = (xmlContent.match(/<ns:AlcoholCode>(.*?)<\/ns:AlcoholCode>/g) || []).map(tag => tag.replace(/<\/?ns:AlcoholCode>/g, ''));
+        const palletTags = (xmlContent.match(/<ns:Pallet>/g) || []).length;
+        const boxTags = (xmlContent.match(/<ns:Box>/g) || []).length;
+
+        const duplicateNsCodes = nsCodes.filter((item, index) => nsCodes.indexOf(item) !== index);
+        const duplicateAlcoholCodes = alcoholCodes.filter((item, index) => alcoholCodes.indexOf(item) !== index);
+
+        alert(`Количество тегов ns:Code: ${nsCodes.length}\nКоличество тегов ns:AlcoholCode: ${alcoholCodes.length}\nКоличество тегов ns:Pallet: ${palletTags}\nКоличество тегов ns:Box: ${boxTags}\nДублированные ns:Code: ${duplicateNsCodes.length > 0 ? duplicateNsCodes.join(", ") : 'Нет'}\nДублированные ns:AlcoholCode: ${duplicateAlcoholCodes.length > 0 ? duplicateAlcoholCodes.join(", ") : 'Нет'}`);
+    }
+</script>
+
+</body>
+</html>
